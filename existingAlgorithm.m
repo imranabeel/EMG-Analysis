@@ -7,16 +7,20 @@ for i=1:numfiles
   timebase = data(:,1);
   emgData = data(:,2);
   
-  noiseBuff = ones(1,128)*4095;
-  noiseTotal = 128 * 4095;
+  avgPeriod = 128;
+  avgDelay = 6000;
+  noiseBuff = ones(1, avgPeriod)*4095;
+  noiseTotal =  avgPeriod * 4095;
   noiseIndex = 1;
-  noiseAverage = noiseTotal/128;
-  threshold = 100;
+  noiseAverage = noiseTotal/ avgPeriod;
+  threshold = 50;
   noiseAdjustTimer = 0;
   
   processedData = zeros(1, length(data));
+  noiseAvgPlot = zeros(1,length(data));
   oldTime = timebase(1);
   timerIsStarted = false;
+  
   for j = 1:length(emgData)
     raw = emgData(j);
     currentTime = timebase(j);
@@ -30,10 +34,10 @@ for i=1:numfiles
         noiseTotal = (noiseTotal - noiseBuff(noiseIndex))+raw; #Update the noise floor using the raw signal
         
         #calculate rolling average noise floor
-        noiseAverage = noiseTotal / 128;
+        noiseAverage = noiseTotal /  avgPeriod;
         noiseBuff(noiseIndex) = raw;
         noiseIndex++;
-        if (noiseIndex >= 129) 
+        if (noiseIndex >=  (avgPeriod+1)) 
           noiseIndex = 1;
          endif
          
@@ -43,14 +47,14 @@ for i=1:numfiles
       endif
       
       #if threshold is allowed to creep up (i.e raw value has been over the noise floor, allow noise floor to creep)
-      if ((currentTime-oldTime) > 6000)
+      if ((currentTime-oldTime) > avgDelay)
         noiseTotal = (noiseTotal - noiseBuff(noiseIndex))+raw; #Update the noise floor using the raw signal
         
         #calculate rolling average noise floor
-        noiseAverage = noiseTotal / 128;
+        noiseAverage = noiseTotal /  avgPeriod;
         noiseBuff(noiseIndex) = raw;
         noiseIndex++;
-        if (noiseIndex >= 129) 
+        if (noiseIndex >= (avgPeriod+1)) 
           noiseIndex = 1;
          endif
         endif
@@ -63,13 +67,18 @@ for i=1:numfiles
       
       #add processed value to array for plotting.
       processedData(j) = tempSig;
+      noiseAvgPlot(j) = noiseAverage;
   endfor
+  
+
   
   figure;
   hold on;
-  plot(timebase,emgData);
+  plotyy(timebase,emgData,timebase,noiseAvgPlot);
   plot(timebase,processedData);
-  legend('Raw','Processed');
+  legend('Raw','Processed', 'Noise Average');
   title(file_name);
  
+ figure; 
+ plot(timebase,noiseAvgPlot);
 endfor
